@@ -75,7 +75,7 @@ async def assign_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in context.chat_data:
         context.chat_data[chat_id] = {}
     context.chat_data[chat_id][task] = assigned_members_username
-    await context.bot.send_message(chat_id=chat_id, text=f'{responsible_for_task} has been assigned to {task}.')
+    await context.bot.send_message(chat_id=chat_id, text=f'@{responsible_for_task} has been assigned to {task}.')
 
 
 async def mark_task_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,7 +88,7 @@ async def mark_task_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if member_username == update.message.from_user.username:
                     assigned_members_username.remove(member_username)
             await context.bot.send_message(chat_id=chat_id,
-                                           text=f'{update.message.from_user.username} has marked {task} as done.')
+                                           text=f'{update.message.from_user.first_name} has marked {task} as done.')
         else:
             await context.bot.send_message(chat_id=chat_id, text=f'You are not assigned to {task}.')
     else:
