@@ -1,6 +1,7 @@
 import logging
 import random
 import sys
+import copy
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler
 import telegram.ext.filters as filters
 from telegram import Update
@@ -30,6 +31,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_username(update, context):
     chat_id = update.message.chat_id
     username = update.message.from_user.username
+    for task in tasks.values():
+        if task in context.chat_data.get(chat_id, {}):
+            if not context.chat_data[chat_id][task]:
+                break
+            context.chat_data[chat_id][task].append(username)
     usernames[chat_id] = usernames.get(chat_id, []) + [username]
 
 
@@ -37,6 +43,14 @@ async def add_username(update, context):
 async def remove_username(update, context):
     chat_id = update.message.chat_id
     username = update.message.left_chat_member.username
+    for task in tasks.values():
+        if task in context.chat_data.get(chat_id, {}):
+            if not context.chat_data[chat_id][task]:
+                break
+            context.chat_data[chat_id][task]['members'].remove(username)
+            if context.chat_data[chat_id][task]['username'] == username:
+                context.chat_data[chat_id][task]['username'] = None
+                context.chat_data[chat_id][task]['active'] = False
     if chat_id in usernames:
         if username in usernames[chat_id]:
             usernames[chat_id].remove(username)
@@ -62,19 +76,25 @@ async def show_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def assign_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     task = tasks[update.message.text[8:9]]
-    if task in context.chat_data.get(chat_id, {}):
-        assigned_members_username = context.chat_data[chat_id][task]
-        if not context.chat_data[chat_id][task]:
-            assigned_members_username = usernames.get(chat_id, {})
+    if task in context.chat_data.get(chat_id, {'members': [], 'active': False, 'username': None}):
+        if context.chat_data[chat_id][task]['active']:
+            await context.bot.send_message(chat_id=chat_id, text=f'{context.chat_data[chat_id][task]["username"]} '
+                                                                 f'already assigned to this task')
+            return
+        assigned_members_username = context.chat_data[chat_id][task]['members']
+        if not context.chat_data[chat_id][task]['members']:
+            assigned_members_username = copy.deepcopy(usernames.get(chat_id, {}))
     else:
-        assigned_members_username = usernames.get(chat_id, {})
+        assigned_members_username = copy.deepcopy(usernames.get(chat_id, {}))
     if not assigned_members_username:
-        await context.bot.send_message(chat_id=chat_id, text=f'No users to assign a task')
+        await context.bot.send_message(chat_id=chat_id, text=f'There are no user to assign a task')
         return
     responsible_for_task = random.choice(assigned_members_username)
     if chat_id not in context.chat_data:
-        context.chat_data[chat_id] = {}
-    context.chat_data[chat_id][task] = assigned_members_username
+        context.chat_data[chat_id] = {task: {}}
+    context.chat_data[chat_id][task]['members'] = assigned_members_username
+    context.chat_data[chat_id][task]['active'] = True
+    context.chat_data[chat_id][task]['username'] = responsible_for_task
     await context.bot.send_message(chat_id=chat_id, text=f'@{responsible_for_task} has been assigned to {task}.')
 
 
@@ -82,17 +102,20 @@ async def mark_task_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     task = tasks[update.message.text[6:7]]
     if task in context.chat_data.get(chat_id, {}).keys():
-        assigned_members_username = context.chat_data[chat_id][task]
+        if not context.chat_data[chat_id][task]['active']:
+            await context.bot.send_message(chat_id=chat_id, text=f'No user was assigned to a task')
+            return
+        assigned_members_username = context.chat_data[chat_id][task]['members']
         if update.message.from_user.username in assigned_members_username:
-            for member_username in assigned_members_username:
-                if member_username == update.message.from_user.username:
-                    assigned_members_username.remove(member_username)
+            context.chat_data[chat_id][task]['members'].remove(update.message.from_user.username)
+            context.chat_data[chat_id][task]['active'] = False
+            context.chat_data[chat_id][task]['username'] = None
             await context.bot.send_message(chat_id=chat_id,
                                            text=f'{update.message.from_user.first_name} has marked {task} as done.')
         else:
             await context.bot.send_message(chat_id=chat_id, text=f'You are not assigned to {task}.')
     else:
-        await context.bot.send_message(chat_id=chat_id, text=f'{task} is not a valid task.')
+        await context.bot.send_message(chat_id=chat_id, text=f'{update.message.text[6:]} is not a valid task.')
 
 
 if __name__ == '__main__':
