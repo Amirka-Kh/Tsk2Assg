@@ -35,7 +35,8 @@ async def add_username(update, context):
         if task in context.chat_data.get(chat_id, {}):
             if not context.chat_data[chat_id][task]:
                 break
-            context.chat_data[chat_id][task].append(username)
+            if context.chat_data[chat_id][task]['members']:
+                context.chat_data[chat_id][task]['members'].append(username)
     usernames[chat_id] = usernames.get(chat_id, []) + [username]
 
 
@@ -92,6 +93,8 @@ async def assign_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     responsible_for_task = random.choice(assigned_members_username)
     if chat_id not in context.chat_data:
         context.chat_data[chat_id] = {task: {}}
+    if task not in context.chat_data[chat_id]:
+        context.chat_data[chat_id][task] = {}
     context.chat_data[chat_id][task]['members'] = assigned_members_username
     context.chat_data[chat_id][task]['active'] = True
     context.chat_data[chat_id][task]['username'] = responsible_for_task
