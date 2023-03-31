@@ -36,9 +36,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def update(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
     for user in input_usernames:
-        if user in usernames[chat_id]:
+        if user in usernames.get(chat_id, []):
             continue
-        usernames[chat_id].append(user)
+        if chat_id in usernames:
+            usernames[chat_id].append(user)
+        else:
+            usernames[chat_id] = [user]
     await context.bot.send_message(chat_id=chat_id, text="context and usernames are updated")
 
 
