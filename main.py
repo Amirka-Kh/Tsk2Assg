@@ -2,17 +2,22 @@ import logging
 import random
 import sys
 import copy
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler
+
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, PicklePersistence
 import telegram.ext.filters as filters
 from telegram import Update
 
+DATA_FILE = "data"
+
 tasks = {
     '1': 'change trash',
-    '2': 'change water',
-    '3': 'buy toilet paper',
-    '4': 'sweep the kitchen floor',
-    '5': 'clean tables in kitchen',
-    '6': 'clean the plate',
+    '2': 'throw trash',
+    '3': 'change water',
+    '4': 'buy toilet paper',
+    '5': 'sweep the kitchen floor',
+    '6': 'clean washing table in kitchen',
+    '7': 'clean tables in kitchen',
+    '8': 'clean the plate',
 }
 usernames = {}
 
@@ -25,6 +30,16 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+
+
+# Upload saved data if exist so and update usernames from input
+async def update(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+    for user in input_usernames:
+        if user in usernames[chat_id]:
+            continue
+        usernames[chat_id].append(user)
+    await context.bot.send_message(chat_id=chat_id, text="context and usernames are updated")
 
 
 # Define a function to add the username of a member when they join the group
@@ -123,9 +138,13 @@ async def mark_task_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     TELEGRAM_TOKEN = sys.argv[1]
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    input_usernames = sys.argv[2:]
+
+    my_persistence = PicklePersistence(filepath=DATA_FILE)
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).persistence(persistence=my_persistence).build()
 
     app.add_handler(CommandHandler('start', start))
+    app.add_handler(CommandHandler('update', update))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, add_username))
     app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, remove_username))
     app.add_handler(CommandHandler("usernames", list_usernames))
