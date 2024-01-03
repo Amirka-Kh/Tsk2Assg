@@ -1,4 +1,4 @@
-# TaskManagerBot
+# Tsk2Assg
 
 ## To contribute
 Fork the repo, add changes, create merge request
